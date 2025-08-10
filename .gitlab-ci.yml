@@ -1,0 +1,32 @@
+    stages: [setup, test, docker]
+    variables:
+      PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    setup:
+      stage: setup
+      image: python:3.11-slim
+      script:
+        - python -m pip install --upgrade pip
+        - pip install -r requirements.txt
+      cache:
+        key: "$CI_COMMIT_REF_SLUG"
+        paths: [.cache/pip]
+    smoke_test:
+      stage: test
+      image: python:3.11-slim
+      script:
+        - pip install -r requirements.txt ruff
+        - ruff check . || true
+        - python - <<'PY'
+import importlib
+for m in ["fastapi","pydantic"]:
+    importlib.import_module(m)
+print("OK")
+PY
+    build_docker:
+      stage: docker
+      image: docker:24.0.7
+      services: ["docker:24.0.7-dind"]
+      script:
+        - docker build -t agent-llm:ci .
+      rules:
+        - if: '$CI_COMMIT_BRANCH == "main"'
